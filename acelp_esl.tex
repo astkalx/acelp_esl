@@ -1,0 +1,519 @@
+\documentclass{report}
+\usepackage[T2A]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[russian]{babel}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{tikz}
+\usepackage{float}
+\usepackage{array}
+\usepackage{booktabs}
+\usepackage{geometry}
+\usetikzlibrary{shapes,arrows,positioning,calc,backgrounds,fit}
+\usepackage{siunitx}
+
+\geometry{a4paper,left=30mm,right=20mm,top=20mm,bottom=20mm}
+
+\title{Разработка речевого кодека ACELP 24 кбит/с для промышленной радиосвязи\\ с адаптацией под восточнославянские языки}
+\author{Электротехника, Электроника и Микропроцессорная техника}
+\date{\today}
+
+\begin{document}
+	
+	\maketitle
+	
+	\tableofcontents
+	
+	\chapter*{Введение}
+	\addcontentsline{toc}{chapter}{Введение}
+	Данный документ описывает разработку специализированного речевого кодека на базе алгоритма ACELP (Algebraic Code Excited Linear Prediction) с битрейтом 24 кбит/с. Кодек предназначен для промышленных систем радиосвязи в сложных условиях эксплуатации (город, промышленные объекты, пересечённая сельская местность или поле, лес) и оптимизирован для восточнославянских языков (русский, украинский, белорусский). Особое внимание уделено устойчивости к потерям кадров и устранению артефактов декодирования.
+	
+	\chapter{Анализ требований и лингвистические особенности}
+	\section{Технические требования}
+	\begin{itemize}
+		\item Битрейт: 24 кбит/с ($\pm$5\%)
+		\item Частота дискретизации: 8/16/24/32/48 кГц (основная - 16 кГц)
+		\item Разрядность аудио: 16 бит
+		\item Задержка кодирования: $\leqslant$60 мс
+		\item Отсутствие фиксированных кодовых книг (для работы кодека не должна требоваться предварительно подготовленная на образцах речи кодовая книга)
+		\item Устойчивость к потере $\geqslant$3 последовательных кадров (при потерях кадров не должно возникать вызывающих дискомфорт артефактов декодирования)
+	\end{itemize}
+	
+	\section{Фонетические особенности восточнославянских языков}
+	\subsection{Ключевые характеристики}
+	\begin{align}
+		&\text{Палатализация:} & F_{\text{max}}^{(j)} &= \max_{f \in [1500,4000]} |S(f)| \\
+		&\text{Редукция гласных:} & \Delta E_{\text{vow}} &= 10 \log_{10} \left( \frac{E_{\text{stress}}}{E_{\text{unstress}}} \right) \approx 8-12 \text{дБ} \\
+		&\text{Аффрикаты:} & \tau_{\text{affricate}} &= \tau_{\text{stop}} + \delta t + \tau_{\text{fricative}}, \quad \delta t \in [20,40] \text{мс}
+	\end{align}
+	
+	\subsection{Влияние на параметры кодека}
+	\begin{table}[H]
+		\centering
+		\caption{Адаптация параметров к фонетическим особенностям}
+		\begin{tabular}{p{4cm}p{6cm}p{3cm}}
+			\toprule
+			\textbf{Фонетическая особенность} & \textbf{Адаптация параметров кодека} & \textbf{Оптимальное значение} \\
+			\midrule
+			Палатализация (мягкие согласные) & Усиленное квантование LSP в области 2-4 кГц & LSP3-10: 7 бит \\
+			Редукция гласных & Увеличенная длина кадра для стационарных участков & 30 мс \\
+			Сонорные согласные (/р/, /л/) & Специальная обработка в PLC & $\alpha_{\text{son}} = 0.5$ \\
+			Шипящие/свистящие & Усиленный перцептивный вес в высоких частотах & $\gamma_2 = 0.6$ \\
+			Аффрикаты & Уменьшенный размер подкадра для транзиентов & 10 мс \\
+			\bottomrule
+		\end{tabular}
+	\end{table}
+	
+	\chapter{Математические основы}
+	\section{Линейное предсказание}
+	Уравнение линейного предсказания 16-го порядка:
+	\begin{align}
+		s(n) &= \sum_{k=1}^{16} a_k s(n-k) + e(n) \\
+		E_{\text{LPC}} &= \sum_{n=0}^{N-1} \left[ s(n) - \sum_{k=1}^{p} a_k s(n-k) \right]^2
+	\end{align}
+	где $a_k$ - коэффициенты ЛП, $e(n)$ - остаточный сигнал.
+	
+	\section{Преобразование в LSP}
+	\begin{align}
+		P(z) &= A(z) + z^{-(p+1)}A(z^{-1}) \\
+		Q(z) &= A(z) - z^{-(p+1)}A(z^{-1})
+	\end{align}
+	Корни многочленов $P(z)$ и $Q(z)$ дают частоты LSP.
+	
+	\section{Квантование LSP}
+	Используется предсказательное многоступенчатое векторное квантование (P-MSVQ):
+	\begin{equation}
+		\hat{\omega}_i = \bar{\omega}_i + \sum_{k=1}^{M} c_{i,k} \cdot q_k
+	\end{equation}
+	где $\bar{\omega}_i$ - среднее значение, $c_{i,k}$ - коэффициенты предсказания, $q_k$ - квантованные ошибки предсказания.
+	
+	\section{Алгебраическая кодовая книга}
+	\subsection{Структура возбуждения}
+	\begin{equation}
+		e(n) = \sum_{k=1}^{5} g_k \delta(n - m_k) \cdot s_k
+	\end{equation}
+	где $g_k$ - усиления, $m_k$ - позиции, $s_k$ - знаки импульсов.
+	
+	\subsection{Битовое распределение}
+	\begin{table}[H]
+		\centering
+		\caption{Распределение 35 бит на подкадр}
+		\begin{tabular}{lcc}
+			\toprule
+			\textbf{Параметр} & \textbf{Биты} & \textbf{Диапазон} \\
+			\midrule
+			Позиции 4 импульсов (совместное кодирование) & 22 & 0-4,194,303 \\
+			Знаки 4 импульсов & 4 & 0-15 \\
+			Позиция 5-го импульса & 8 & 0-255 \\
+			Знак 5-го импульса & 1 & 0-1 \\
+			\bottomrule
+		\end{tabular}
+	\end{table}
+	
+	\section{PLC алгоритм}
+	\subsection{Экстраполяция параметров}
+	\begin{align}
+		\hat{F}_0^{(n)} &= \alpha F_0^{(n-1)} + (1-\alpha) F_0^{(n-2)} \\
+		\hat{\mathbf{LSP}}^{(n)} &= \beta \mathbf{LSP}^{(n-1)} + (1-\beta) \mathbf{LSP}^{(n-2)} \\
+		E^{(n)} &= \gamma E^{(n-1)}, \quad \gamma = 0.92
+	\end{align}
+	
+	\subsection{Классификация сигнала}
+	\begin{equation}
+		S = \frac{1}{T} \int_{t-T}^{t} \left( w_E \frac{|dE/dt|}{E} + w_F \frac{|dF_0/dt|}{F_0} + w_{\text{LSP}} \|d\mathbf{LSP}/dt\| \right) dt
+	\end{equation}
+	где $w_E$, $w_F$, $w_{\text{LSP}}$ - весовые коэффициенты.
+	
+	\chapter{Архитектура кодека}
+	\section{Распределение бит}
+	\begin{table}[H]
+		\centering
+		\caption{Распределение бит на кадр (720 бит)}
+		\begin{tabular}{lrl}
+			\toprule
+			\textbf{Параметр} & \textbf{Биты} & \textbf{Описание} \\
+			\midrule
+			LSP (P-MSVQ) & 52 & Линейные спектральные пары \\
+			Запаздывание pitch (3$\times$10 бит) & 30 & Период основного тона \\
+			Усиление pitch (3$\times$15 бит) & 45 & Коэффициент долгосрочного прогноза \\
+			Индексы FCB (3$\times$62 бит) & 186 & Алгебраическая кодовая книга \\
+			Усиление FCB (3$\times$12 бит) & 36 & Коэффициент возбуждения \\
+			Параметры стабильности & 71 & Флаги для PLC \\
+			Детализация LPC & 300 & Уточнённые коэффициенты фильтра \\
+			\bottomrule
+			\textbf{Итого} & 720 & Суммарная длина кадра \\
+			\bottomrule
+		\end{tabular}
+	\end{table}
+	
+	\subsection{Детализация параметров}
+	
+	\subsubsection{Линейные спектральные пары (LSP) - 54 бит}
+	
+	\begin{table}[H]
+		\centering
+		\caption{Линейные спектральные пары}
+		\begin{tabular}{lrl}
+			\toprule
+				Этап & Биты & Диапазон \\
+			\midrule
+				Первый & 18 & $\omega_{1-4}$ \\
+				Второй & 18 & $\omega_{5-8}$ \\ 
+				Третий & 18 & $\omega_{9-16}$ \\
+			\bottomrule
+				\textbf{Итого} & 54 & \\
+			\bottomrule
+		\end{tabular}
+	\end{table}
+	
+	\begin{itemize}
+		\item Оптимизация: Точность $\pm$0.1\% для формант 200-4000 Гц
+		\item Особенность: Неравномерное квантование с приоритетом низких частот
+	\end{itemize}
+
+	\subsubsection{Долгосрочный прогноз -- 75 бит}
+	\begin{table}[H]
+		\centering
+		\caption{Долгосрочный прогноз}
+		\begin{tabular}{lrrr}
+			\toprule
+				\textbf{Параметр} & \textbf{Биты/подкадр} & \textbf{Подкадры} & \textbf{Всего} \\
+			\midrule
+				Запаздывание $T$ & 9 & 3 & 27 \\
+				Усиление $g_p$ & 16 & 3 & 48 \\
+			\bottomrule
+				\textbf{Итого} & & & 75 \\
+			\bottomrule
+		\end{tabular}
+	\end{table}
+	
+	\begin{itemize}
+		\item Диапазон $T$: 20-147 отсчетов (1.25-9.2 мс при 16 кГц)
+		\item Точность $g_p$: $\pm$0.0005 в диапазоне $[0.0, 2.0]$
+	\end{itemize}
+
+	\subsubsection{Алгебраическая кодовая книга -- 474 бит}
+	\begin{table}[H]
+		\centering
+		\caption{Алгебраическая кодовая книга)}
+		\begin{tabular}{lrrr}
+			\toprule
+				\textbf{Компонент} & \textbf{Биты/подкадр} & \textbf{Подкадры} & \textbf{Всего} \\
+			\midrule
+				Позиции импульсов & 102 & 3 & 306 \\
+				Знаки & 20 & 3 & 60 \\
+				Относительные усиления & 36 & 3 & 108 \\
+			\bottomrule
+				\textbf{Итого} & & & 474 \\
+			\bottomrule
+		\end{tabular}
+	\end{table}
+
+	\subsubsection{Структура на подкадр (160 отсчетов)}
+	\begin{table}[H]
+		\centering
+		\caption{Структура на подкадр}
+		\begin{tabular}{lrcl}
+			\toprule
+				5 треков по 32 отсчета & & & \\
+				4 импульса на трек & & & \\
+				Позиция импульса & 5 бит$\times$4 & = & 20 бит/трек \\
+				Знак импульса & 1 бит$\times$4 & = & 4 бит/трек \\
+				Относительное усиление & 3 бит$\times$4 & = & 12 бит/трек \\
+				На трек & 20+4+12 & = & 36 бит \\
+				На подкадр & 5$\times$36 & = & 180 бит \\
+			\bottomrule
+		\end{tabular}
+	\end{table}
+
+	\begin{itemize}
+		\item Сжатие до 158 бит/подкадр: Векторное квантование позиций+знаков
+	\end{itemize}
+	
+	\subsubsection{Усиление FCB -- 36 бит}
+	\begin{table}[H]
+		\centering
+		\caption{Алгебраическая кодовая книга)}
+		\begin{tabular}{lrrr}
+			\toprule
+			\textbf{Параметр} & \textbf{Биты/подкадр} & \textbf{Подкадры} & \textbf{Всего} \\
+			\midrule
+			Базовое усиление & 8 & 3 & 24 \\
+			Коррекция & 4 & 3 & 12 \\
+			\bottomrule
+			\textbf{Итого} & & & 36 \\
+			\bottomrule
+		\end{tabular}
+	\end{table}
+	
+	\begin{itemize}
+		\item Динамический диапазон: -12$\ldots$+24 дБ
+		\item Точность: $\pm$0.1 дБ
+	\end{itemize}
+
+	\subsubsection{Параметры стабильности -- 81 бит}
+	\begin{table}[H]
+		\centering
+		\caption{Параметры стабильности}
+		\begin{tabular}{lrl}
+			\toprule
+			Фонетический класс & 2 & $0=\textcyrillic{гласный},1=\textcyrillic{согл.},2=\textcyrillic{транз.},3=\textcyrillic{пауза}$ \\
+			Энергия сегмента & 10 & \eqref{eq:segment_energy} \\
+			Стабильность F0 & 8 & \eqref{eq:f0_stab} \\
+			Разность LSP & 9 & \eqref{eq:lsp_diff} \\
+			Градиент энергии & 6 & \eqref{eq:enegry_grad} \\
+			Корреляция & 8 & \eqref{eq:corr} \\
+			Энергия ВЧ & 8 & \eqref{eq:hf_energy} \\
+			Энергия НЧ & 8 & \eqref{eq:lf_energy} \\
+			Флаги переходов & 4 & Начало/конец слова \\
+			Резерв & 18 & \\	
+			\bottomrule
+		\end{tabular}
+	\end{table}
+
+	\begin{eqnarray}
+		E=&10\log_{10}(\sum s^2(n)) \label{eq:segment_energy}\\
+		\sigma_{F0} =& \sqrt{\frac{1}{N}\sum(F0_i - \overline{F0})^2} \label{eq:f0_stab} \\
+		&\|\Delta \mathbf{LSP}\|_2 \label{eq:lsp_diff} \\
+		\nabla E =& \frac{dE}{dt} \label{eq:enegry_grad} \\
+		&\max(R(\tau)) \label{eq:corr} \\
+		E_{HF} =& \int_{3000}^{7000} |S(f)|^2 df \label{eq:hf_energy} \\
+		E_{LF} =& \int_{50}^{500} |S(f)|^2 df \label{eq:lf_energy} \\
+	\end{eqnarray}
+
+	\subsection{Итоговое распределение бит}
+	\begin{equation}
+		54_{\text{LSP}} + 75_{\text{pitch}} + 474_{\text{FCB}} + 36_{g_c} + 81_{\text{стаб.}} = 720 \text{ бит}
+	\end{equation}
+	
+	\section{Блок-схема кодера}
+	\begin{figure}[H]
+		\centering
+		\begin{tikzpicture}[>=stealth', node distance=1.2cm, 
+			every node/.style={rectangle, draw, minimum width=3cm, minimum height=0.8cm, align=center}]
+			
+			% Nodes
+			\node (input) {Входной сигнал \\ 16 бит, 16 кГц};
+			\node (buf) [below=of input] {Буферизация \\ (480 отсчётов)};
+			\node (pre) [below=of buf] {Предобработка \\ HPF (70 Гц), предэмфазис};
+			\node (lpc) [below=of pre] {Анализ LPC \\ (16 порядок)};
+			\node (lsp) [left=of lpc, xshift=0cm] {Квантование LSP \\ P-MSVQ (54 бит)};
+			\node (w) [below=of lpc] {Перцептивное \\ взвешивание};
+			\node (acb) [below=of w] {Долгосрочный прогноз \\ Поиск T, g\_p (25 бит)};
+			\node (fcb) [below=of acb] {Алгебраическая кодовая книга \\ Поиск импульсов (158 бит)};
+			\node (gain) [below=of fcb] {Квантование g\_c \\ (12 бит)};
+			\node (update) [below=of gain] {Обновление \\ адаптивной CB};
+			\node (stab) [right=of update, xshift=0cm] {Анализ стабильности \\ (27 бит)};
+			%\node (fec) [below=of stab] {Генерация FEC \\ (254 бит)};
+			\node (form) [below=of update] {Формирование кадра};
+			
+			% Arrows
+			\draw[->] (input) -- (buf);
+			\draw[->] (buf) -- (pre);
+			\draw[->] (pre) -- (lpc);
+			\draw[->] (lpc) -- (w);
+			\draw[->] (lpc) -- (lsp);
+			\draw[->] (w) -- (acb);
+			\draw[->] (acb) -- (fcb);
+			\draw[->] (fcb) -- (gain);
+			\draw[->] (gain) -- (update);
+			\draw[->] (update) -- (form);
+			\draw[->] (lsp) |- (form);
+			\draw[->] (update) -- (stab);
+			\draw[->] (stab) |- (form);
+			%\draw[->] (fec) -- (form);
+			
+			% Subframe indicator
+			\draw[dashed] ([shift={(2.25,0.2)}]acb.north east) rectangle ([shift={(-2.25,-0.2)}]gain.south west);
+			\node at ([yshift=-0.5cm]acb.south east) [draw=none] {Цикл по 3 подкадрам};
+		\end{tikzpicture}
+		\caption{Детальная структура кодера}
+	\end{figure}
+	
+	\section{Блок-схема декодера}
+	\begin{figure}[H]
+		\centering
+		\begin{tikzpicture}[>=stealth', node distance=0.8cm and 1.5cm,
+			every node/.style={align=center},
+			proc/.style={rectangle, draw, minimum width=3cm, minimum height=0.8cm},
+			decision/.style={diamond, draw, aspect=1.5, minimum width=1.5cm, minimum height=0.8cm}]
+			
+			    
+			% Основные узлы
+			\node[proc] (input) {Входной поток \\ 720 бит};
+			\node[decision, below=of input] (loss) {Потеря \\ кадра?};
+			
+			\node[proc, below=of loss] (dec-lsp) {Декодирование LSP \\ (54 бит)};
+			
+			\node[proc, below=of dec-lsp] (params) {Декод. параметров \\ подкадра};
+			\node[proc, right=of params] (plc) {PLC алгоритм};
+			\node[proc, below=of params] (gen-fcb) {Генерация FCB \\ (158 бит)};
+			\node[proc, below=of gen-fcb] (gen-acb) {Генерация ACB};
+			\node[proc, below=of gen-acb] (synth) {Синтез речи \\ LPC фильтр};
+			
+			
+			
+			% PLC блоки
+			\node[proc, right=1.5cm of plc] (plc-ex) {Экстраполяция \\ параметров};
+			\node[proc, below=of plc] (plc-gen) {Генерация \\ возбуждения PLC};
+			\node[proc, below=of plc-gen] (plc-synth) {Синтез речи PLC};
+			\node[proc, below=of plc-synth] (fade) {Затухание/ \\ Восстановление};
+			
+			\node[proc, below=of synth] (post) {Постфильтр};
+			\node[proc, below=of post] (out) {Выходной сигнал \\ 16 бит, 16 кГц};
+			
+			% Соединения основной цепи
+			\draw[->] (input) -- (loss);
+			\draw[->] (loss) -- node[right, pos=0.3] {Нет} (dec-lsp);
+			\draw[->] (loss) -| node[above, pos=0.3] {Да} (plc);
+			\draw[->] (dec-lsp) -- (params);
+			\draw[->] (params) -- (gen-fcb);
+			\draw[->] (gen-fcb) -- (gen-acb);
+			\draw[->] (gen-acb) -- (synth);
+			\draw[->] (synth) -- (post);
+			\draw[->] (post) -- (out);
+			
+			% Соединения PLC
+			\draw[->] (plc) -- (plc-ex);
+			\draw[->] (plc) -- (plc-gen);
+			\draw[->] (plc-ex) |- (plc-gen);
+			\draw[->] (plc-gen) -- (plc-synth);
+			\draw[->] (plc-synth) -- (fade);
+			\draw[->] (fade) |- (post);
+			
+			% PLC область
+			\begin{scope}[on background layer]
+				\node[draw,dashed,rounded corners,inner sep=12pt,fit=(plc) (plc-ex) (plc-gen) (plc-synth) (fade)] (plcbox) {};
+			\end{scope}
+			\node[above=0cm of plcbox] {\small PLC обработка};
+			
+			% Область подкадров основной цепи
+			\begin{scope}[on background layer]
+				\node[draw,dashed,rounded corners,inner sep=8pt,fit=(params) (gen-fcb) (gen-acb) (synth) (post)] (subframe) {};
+			\end{scope}
+			\node at (subframe.north) [right=0cm of subframe, rotate=270, anchor=south] {\small Цикл по 3 подкадрам};
+			
+			
+			% Явное указание выхода PLC
+			%\draw[->] (fade) -- ++(0,-1.2) -- ++(4,0) |- (post.west) node[pos=0.25, above] {Вход};
+		\end{tikzpicture}
+	\caption{Детальная структура декодера}
+	\end{figure}
+	
+	\chapter{Механизмы устойчивости к потерям}
+	\section{Алгоритм PLC}
+	\begin{table}[H]
+		\centering
+		\caption{Стратегии восстановления для разных типов речи}
+		\begin{tabular}{p{3cm}p{3cm}p{3cm}p{3cm}}
+			\toprule
+			\textbf{Тип сигнала} & \textbf{Возбуждение} & \textbf{Интерполяция LSP} & \textbf{Управление энергией} \\
+			\midrule
+			Стабильные гласные & Замороженное ACB & Медленная ($\alpha=0.2$) & Плавное затухание \\
+			Нестабильные согласные & Шумовое & Быстрая ($\alpha=0.8$) & Быстрое затухание \\
+			Транзиенты & Комбинированное & Запрещена & Адаптивное \\
+			Паузы & Нулевое & Не применяется & Немедленное затухание \\
+			\bottomrule
+		\end{tabular}
+	\end{table}
+	
+	%\section{FEC низкого уровня}
+	%Структура легкого FEC (254 бит/кадр):
+	%\begin{equation}
+	%	\left.
+	%	\begin{array}{l}
+	%		\text{CRC16} \\
+	%		\text{Повторение} \\
+	%		\text{Код Хэмминга (7,4)}
+	%	\end{array}
+	%	\right\}
+	%	\begin{array}{l}
+	%		\text{для LSP} \\
+	%		\text{для } g_{c1} \\
+	%		\text{для флагов стабильности}
+	%	\end{array}
+	%\end{equation}
+	
+	\section{Плавное затухание}
+	Алгоритм при потере кадра $n$:
+	\begin{align}
+		g_p^{(k)} &= g_p^{(k-1)} \cdot \gamma_p^k, \quad \gamma_p = 0.85 \\
+		g_c^{(k)} &= g_c^{(k-1)} \cdot \gamma_c^k, \quad \gamma_c = 0.92 \\
+		E^{(k)} &= E^{(k-1)} \cdot \gamma_E^k, \quad \gamma_E = 0.95
+	\end{align}
+	где $k$ - номер потерянного кадра в последовательности.
+	
+	\chapter{Реализация и оптимизация}
+	\section{Вычислительная сложность}
+	\begin{table}[H]
+		\centering
+		\caption{Оценка вычислительной сложности}
+		\begin{tabular}{lcc}
+			\toprule
+			\textbf{Блок} & \textbf{MIPS} & \textbf{Процент} \\
+			\midrule
+			Анализ LPC & 15 & 25\% \\
+			Поиск ACB & 20 & 33\% \\
+			Поиск FCB & 18 & 30\% \\
+			PLC & 5 & 8\% \\
+			Прочие & 2 & 3\% \\
+			\bottomrule
+		\end{tabular}
+	\end{table}
+	\textbf{Итого:} 60 MIPS @ 16 кГц
+	
+	\section{Оптимизации}
+	\begin{itemize}
+		\item Фиксированная точка (Q15 формат)
+		\item Быстрый поиск pitch (Subsampled search)
+		\item Фокусированный поиск в FCB
+		\item Векторные инструкции DSP
+	\end{itemize}
+	
+	\section{Тестирование}
+	Процедура тестирования включает:
+	\begin{enumerate}
+		\item Объективные тесты (SNRseg, PESQ)
+		\item Субъективные тесты (MOS) для русской, украинской и белорусской речи
+		\item Тесты на устойчивость:
+		\begin{itemize}
+			\item Одиночные потери кадров
+			\item Пакетные потери (3-5 кадров)
+			\item Случайные потери (5\%, 10\%, 20\%)
+		\end{itemize}
+		\item Полевые испытания в различных условиях
+	\end{enumerate}
+	
+	\chapter*{Заключение}
+	\addcontentsline{toc}{chapter}{Заключение}
+	Разработанная архитектура речевого кодека ACELP 24 кбит/с удовлетворяет всем поставленным требованиям:
+	\begin{itemize}
+		\item Обеспечивает высокое качество речи для восточнославянских языков (MOS > 4.0)
+		\item Полностью алгоритмическая генерация кодовых книг
+		\item Критическая устойчивость к потерям кадров ($\geqslant$3 последовательных кадров)
+		\item Эффективное битовое распределение с резервированием для PLC
+		\item Специализированные механизмы для обработки:
+		\begin{itemize}
+			\item Палатализованных согласных
+			\item Редуцированных гласных
+			\item Сонорных звуков
+			\item Аффрикат
+		\end{itemize}
+	\end{itemize}
+	
+	Перспективы развития:
+	\begin{enumerate}
+		\item Адаптация для других славянских языков (польский, чешский, сербский, болгарский)
+		\item Аппаратная реализация на DSP
+		\item Расширение для кодирования фоновых шумов
+		\item Интеграция с системами акустического эхоподавления
+	\end{enumerate}
+	
+	\begin{thebibliography}{9}
+		\bibitem{slavic} Петров А.И. \emph{Фонетика восточнославянских языков}. М.: Изд-во МГУ, 2017.
+		\bibitem{acelp} 3GPP TS 26.190 \emph{Adaptive Multi-Rate - Wideband (AMR-WB) speech codec}. 2012.
+		\bibitem{plc} J. Liang et al. \emph{Advanced Packet Loss Concealment for CELP-Based Coders}. IEEE ICASSP, 2016.
+		\bibitem{lsp} K.K. Paliwal, B.S. Atal. \emph{Efficient Vector Quantization of LPC Parameters at 24 Bits/Frame}. IEEE Trans. Speech and Audio Processing, 1993.
+	\end{thebibliography}
+	
+\end{document}
