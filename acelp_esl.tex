@@ -259,15 +259,17 @@
 		\begin{tabular}{lrl}
 			\toprule
 			Фонетический класс & 2 & $0=\textcyrillic{гласный},1=\textcyrillic{согл.},2=\textcyrillic{транз.},3=\textcyrillic{пауза}$ \\
-			Энергия сегмента & 10 & \eqref{eq:segment_energy} \\
-			Стабильность F0 & 8 & \eqref{eq:f0_stab} \\
+			Энергия сегмента & 12 & \eqref{eq:segment_energy} \\
+			Стабильность F0 & 12 & \eqref{eq:f0_stab} \\
 			Разность LSP & 9 & \eqref{eq:lsp_diff} \\
-			Градиент энергии & 6 & \eqref{eq:enegry_grad} \\
-			Корреляция & 8 & \eqref{eq:corr} \\
-			Энергия ВЧ & 8 & \eqref{eq:hf_energy} \\
-			Энергия НЧ & 8 & \eqref{eq:lf_energy} \\
-			Флаги переходов & 4 & Начало/конец слова \\
-			Резерв & 42 & \\	
+			Градиент энергии & 10 & \eqref{eq:enegry_grad} \\
+			Корреляция & 10 & \eqref{eq:corr} \\
+			Энергия ВЧ & 10 & \eqref{eq:hf_energy} \\
+			Энергия НЧ & 10 & \eqref{eq:lf_energy} \\
+			Флаги переходов & 6 & Начало/конец слова \\
+			Резерв & 24 & \\
+			\bottomrule
+			\textbf{Итого} & 105 & \\
 			\bottomrule
 		\end{tabular}
 	\end{table}
