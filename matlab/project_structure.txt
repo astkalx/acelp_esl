@@ -1,0 +1,24 @@
+acelp_codec/
+├── acelp_encoder.m
+├── acelp_decoder.m
+├── preprocess.m
+├── lpc_analysis.m
+├── lpc_to_lsp.m
+├── lsp_quantize.m
+├── lsp_unquantize.m
+├── acb_search.m
+├── fcb_search.m
+├── generate_excitation.m
+├── speech_synthesis.m
+├── postprocess.m
+├── stability_params.m
+├── plc_concealment.m
+├── pack_bitstream.m
+├── unpack_bitstream.m
+├── init_encoder_state.m
+├── init_decoder_state.m
+├── generate_lsp_codebooks.m
+├── design_biased_codebook.m
+├── detect_transitions.m
+├── energy_bands.m
+└── classify_signal.m
