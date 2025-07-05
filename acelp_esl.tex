@@ -15,7 +15,7 @@
 \geometry{a4paper,left=30mm,right=20mm,top=20mm,bottom=20mm}
 
 \title{Разработка речевого кодека ACELP 25,6 кбит/с для промышленной радиосвязи\\ с адаптацией под восточнославянские языки}
-\author{Электротехника, Электроника и Микропроцессорная техника}
+\author{Астахов А.А.}
 \date{\today}
 
 \begin{document}
@@ -288,13 +288,14 @@
 	\end{table}
 
 	\begin{eqnarray}
-		E=&10\log_{10}(\sum s^2(n)) \label{eq:segment_energy}\\
-		\sigma_{F0} =& \sqrt{\frac{1}{N}\sum(F0_i - \overline{F0})^2} \label{eq:f0_stab} \\
-		&\|\Delta \mathbf{LSP}\|_2 \label{eq:lsp_diff} \\
-		\nabla E =& \frac{dE}{dt} \label{eq:enegry_grad} \\
-		&\max(R(\tau)) \label{eq:corr} \\
-		E_{HF} =& \int_{3000}^{7000} |S(f)|^2 df \label{eq:hf_energy} \\
-		E_{LF} =& \int_{50}^{500} |S(f)|^2 df \label{eq:lf_energy} \\
+		E=&10\log_{10}(\sum s^2(n)) &\quad \text{(энергия сегмента)} \label{eq:segment_energy}\\
+		\sigma_{F0} =& \sqrt{\frac{1}{N}\sum(F0_i - \overline{F0})^2} &\quad \text{(стабильность F0)} \label{eq:f0_stab} \\
+		&\|\Delta \mathbf{LSP}\|_2 &\quad \text{(разность LSP)} \label{eq:lsp_diff} \\
+		\nabla E =& \frac{dE}{dt} &\quad \text{(градиент энергии)} \label{eq:enegry_grad} \\
+		%&\max(R(\tau)) \label{eq:corr} \\
+		&\max_{\tau} \left| \sum_{n} s(n) \cdot s(n-\tau) \right| &\quad \text{(корреляция)} \label{eq:corr} \\
+		E_{HF} =& \int_{3000}^{7000} |S(f)|^2 df &\quad \text{(энергия ВЧ)} \label{eq:hf_energy} \\
+		E_{LF} =& \int_{50}^{500} |S(f)|^2 df &\quad \text{(энергия НЧ)} \label{eq:lf_energy} \\
 	\end{eqnarray}
 
 	\subsection{Итоговое распределение бит}
