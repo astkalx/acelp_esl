@@ -7,13 +7,21 @@ function [output_frame, state] = acelp_decoder(bitstream, loss_flag, state)
     ORDER = 16;
     
     if loss_flag == 0
-        % Unpack bitstream
+        % Распаковка битового потока
         [params, state] = unpack_bitstream(bitstream, state);
         
-        % LSP to LPC conversion
+        % Проверка преамбулы (M-последовательность)
+        mseq_ref = [1,0,1,0,1,1,0,1,0,1,0,0,1,1,1,0,1,1,0,0,0,1,1,1,1,0,0,1,0,0,0,0]';
+        if ~isequal(params.preamble, mseq_ref)
+            loss_flag = 1;
+        end
+    end
+    
+    if loss_flag == 0
+        % Преобразование LSP в LPC
         lpc_coeffs = lsp_to_lpc(params.quant_lsp);
         
-        % Synthesize speech
+        % Синтез речи
         synth_frame = [];
         for i = 1:3
             exc_signal = generate_excitation(params.acb(i), params.fcb(i), state);
@@ -22,18 +30,26 @@ function [output_frame, state] = acelp_decoder(bitstream, loss_flag, state)
             state.exc_buffer = [state.exc_buffer(SUBFRAME_LEN+1:end); exc_signal];
         end
         
-        % Post-processing
+        % Постобработка
         output_frame = postprocess(synth_frame, state);
         
-        % Update state
+        % Обновление состояния
         state.prev_lsp = params.quant_lsp;
         state.prev_params = params;
+        state.prev_stab = params.stab;  % Сохранение параметров стабильности
         state.prev_frame = output_frame;
         state.loss_count = 0;
+        
+        % Адаптивный постфильтр для согласных
+        phon_class = bi2de(params.stab.phon_class, 'left-msb');
+        if phon_class == 1  % Согласные
+            [output_frame, state.postfilt_state] = filter(...
+                [1 -0.65], 1, output_frame, state.postfilt_state);
+        end
     else
-        % Packet Loss Concealment
+        % Сокрытие потерь пакетов
         state.loss_count = state.loss_count + 1;
-        output_frame = plc_concealment(state);
+        [output_frame, state] = plc_concealment(state);
         state.prev_frame = output_frame;
     end
 end
