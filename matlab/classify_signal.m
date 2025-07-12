@@ -1,9 +1,16 @@
 function phon_class = classify_signal(frame, state)
     energy = 10*log10(mean(frame.^2) + eps);
 
-	% Детектирование палатализации
+    % Детектирование палатализации
     [E_lf, E_hf] = energy_bands(frame);
     hf_ratio = E_hf - E_lf;
+    
+    % Расчет стабильности F0
+    if isfield(state, 'f0_est') && numel(state.f0_est) >= 3
+        f0_stability = std(state.f0_est);
+    else
+        f0_stability = 10; % Значение по умолчанию
+    end
     
     % Расширенная классификация для славянских языков
     if energy < 20

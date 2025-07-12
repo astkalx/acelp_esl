@@ -16,11 +16,11 @@ function [bitstream, state] = acelp_encoder(input_frame, state)
     
     % Преобразование в LSP и квантование
     lsp = lpc_to_lsp(a);
-	
-	% Классификация сигнала для адаптивного квантования
+    
+    % Классификация сигнала для адаптивного квантования
     phon_class = classify_signal(proc_frame, state);
-	
-	% Адаптивное квантование LSP
+    
+    % Адаптивное квантование LSP
     [quant_lsp, lsp_bits] = lsp_quantize(lsp, state, phon_class);
     
     % Поиск параметров ACB и FCB
@@ -30,6 +30,12 @@ function [bitstream, state] = acelp_encoder(input_frame, state)
         subframe = proc_frame((i-1)*SUBFRAME_LEN+1:i*SUBFRAME_LEN);
         [acb_params(i), state] = acb_search(subframe, state);
         [fcb_params(i), state] = fcb_search(subframe, acb_params(i), state);
+        
+        % Генерация полного возбуждения (ACB + FCB)
+        exc = generate_excitation(acb_params(i), fcb_params(i), state);
+        
+        % Обновление буфера (после FCB!)
+        state.exc_buffer = [state.exc_buffer(SUBFRAME_LEN+1:end); exc];
         
         % Квантование усиления FCB (12 бит на подкадр)
         energy = norm(subframe);
@@ -67,7 +73,7 @@ function [bitstream, state] = acelp_encoder(input_frame, state)
         state.lsp_cb = generate_lsp_codebooks();
     end
     state.frame_count = state.frame_count + 1;
-	
-	% Сохранение класса для PLC
+    
+    % Сохранение класса для PLC
     state.prev_phon_class = phon_class;
 end

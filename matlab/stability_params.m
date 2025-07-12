@@ -41,10 +41,7 @@ function stab_bits = stability_params(frame, lsp, state)
     % 9. Transition flags (6 bits)
     stab.trans_flags = detect_transitions(frame, state);
     
-    % 10. Reserved (24 bits)
-    stab.reserved = 0;
-    
-    % Pack to bitstream
+    % Pack to bitstream (ровно 81 бит)
     stab_bits = [
         de2bi(stab.phon_class, 2, 'left-msb')
         de2bi(stab.energy, 12, 'left-msb')
@@ -55,6 +52,6 @@ function stab_bits = stability_params(frame, lsp, state)
         de2bi(round(stab.E_lf), 10, 'left-msb')
         de2bi(round(stab.E_hf), 10, 'left-msb')
         de2bi(stab.trans_flags, 6, 'left-msb')
-        zeros(1,24) % reserved
+        zeros(1,0) % Пусто (можно добавить комментарий)
     ];
 end
