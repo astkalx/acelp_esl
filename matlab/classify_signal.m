@@ -1,14 +1,20 @@
 function phon_class = classify_signal(frame, state)
     energy = 10*log10(mean(frame.^2) + eps);
+
+	% Детектирование палатализации
     [E_lf, E_hf] = energy_bands(frame);
+    hf_ratio = E_hf - E_lf;
     
-    if energy < 20 % Silence threshold
-        phon_class = 3; % Pause
-    elseif E_hf > E_lf + 5 % Slavic consonants
-        phon_class = 1; % Consonant
-    elseif isfield(state, 'f0_est') && std(state.f0_est) < 5
-        phon_class = 0; % Vowel
+    % Расширенная классификация для славянских языков
+    if energy < 20
+        phon_class = 3; % Пауза
+    elseif hf_ratio > 10 % Сильный ВЧ-компонент
+        phon_class = 1; % Палатализованный согласный
+    elseif hf_ratio > 5
+        phon_class = 1; % Обычный согласный
+    elseif f0_stability < 5
+        phon_class = 0; % Гласный
     else
-        phon_class = 2; % Transition
+        phon_class = 2; % Транзиент
     end
 end
