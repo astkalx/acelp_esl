@@ -16,7 +16,12 @@ function [bitstream, state] = acelp_encoder(input_frame, state)
     
     % Преобразование в LSP и квантование
     lsp = lpc_to_lsp(a);
-    [quant_lsp, lsp_bits] = lsp_quantize(lsp, state);
+	
+	% Классификация сигнала для адаптивного квантования
+    phon_class = classify_signal(proc_frame, state);
+	
+	% Адаптивное квантование LSP
+    [quant_lsp, lsp_bits] = lsp_quantize(lsp, state, phon_class);
     
     % Поиск параметров ACB и FCB
     acb_params = [];
@@ -62,4 +67,7 @@ function [bitstream, state] = acelp_encoder(input_frame, state)
         state.lsp_cb = generate_lsp_codebooks();
     end
     state.frame_count = state.frame_count + 1;
+	
+	% Сохранение класса для PLC
+    state.prev_phon_class = phon_class;
 end

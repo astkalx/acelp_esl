@@ -3,16 +3,24 @@ function cb = design_biased_codebook(dim, fmin, fmax)
     cb = zeros(n, dim);
     freq_range = fmax - fmin;
     
+    % Усиленная плотность в целевом диапазоне
     for i = 1:n
-        % 60% points in target range
-        if i < 0.6*n
+        % 70% точек в целевом диапазоне
+        if i < 0.7*n
             f = rand(1,dim) * freq_range + fmin;
-        % 40% points in full range
+        % 30% точек в полном диапазоне
         else
             f = rand(1,dim) * 4000;
         end
         
-        % Convert to angular frequencies [0, π]
+        % Сортировка и преобразование в угловые частоты
         cb(i,:) = sort(f * (pi/4000));
+    end
+    
+    % Дополнительная оптимизация для палатализованных звуков
+    if fmin > 1000 && fmax > 2500
+        % Увеличение плотности для LSP5-LSP10
+        idx = randi([0.5*n n], 1, 0.2*n);
+        cb(idx,:) = rand(length(idx), dim) * (pi/2) + pi/4;
     end
 end

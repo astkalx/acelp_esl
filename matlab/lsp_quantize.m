@@ -1,20 +1,27 @@
-function [quant_lsp, bits] = lsp_quantize(lsp, state)
+function [quant_lsp, bits] = lsp_quantize(lsp, state, phon_class)
+    % Базовые веса
     weights = ones(1,16);
-    weights(5:10) = 2.0; % Enhanced quantization for 2-4 kHz
     
+    % Усиленное квантование для палатализованных согласных (2-4 кГц)
+    if phon_class == 1 % Согласные
+        weights(5:10) = 2.5; % Усиление для LSP5-LSP10 (2-4 кГц)
+        weights(3:4) = 1.8;  % Дополнительное усиление для переходной области
+    end
+    
+    % Кодовая книга LSP
     CB1 = state.lsp_cb.stage1;
     CB2 = state.lsp_cb.stage2;
     CB3 = state.lsp_cb.stage3;
     
-    % Stage 1: First 4 LSPs (weighted)
+    % Этап 1: Первые 4 LSP (взвешенное квантование)
     [idx1, quant1] = weighted_vq(lsp(1:4)', CB1, weights(1:4));
     bits1 = de2bi(idx1-1, 18, 'left-msb');
     
-    % Stage 2: Next 4 LSPs
+    % Этап 2: Следующие 4 LSP
     [idx2, quant2] = weighted_vq(lsp(5:8)', CB2, weights(5:8));
     bits2 = de2bi(idx2-1, 18, 'left-msb');
     
-    % Stage 3: Last 8 LSPs
+    % Этап 3: Последние 8 LSP
     [idx3, quant3] = weighted_vq(lsp(9:16)', CB3, weights(9:16));
     bits3 = de2bi(idx3-1, 18, 'left-msb');
     
@@ -23,7 +30,19 @@ function [quant_lsp, bits] = lsp_quantize(lsp, state)
 end
 
 function [idx, quant] = weighted_vq(vec, codebook, weights)
-    dist = sum((codebook - vec) .^ 2 .* weights, 2);
-    [~, idx] = min(dist);
+    % Взвешенное векторное квантование
+    min_dist = inf;
+    idx = 1;
+    
+    for i = 1:size(codebook, 1)
+        diff = vec - codebook(i,:);
+        dist = sum(weights .* (diff.^2));
+        
+        if dist < min_dist
+            min_dist = dist;
+            idx = i;
+        end
+    end
+    
     quant = codebook(idx, :)';
 end
