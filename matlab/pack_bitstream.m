@@ -1,25 +1,43 @@
 function bitstream = pack_bitstream(lsp_bits, acb_params, fcb_params, stab_bits)
-    bitstream = zeros(1, 720, 'uint8');
-    pos = 1;
+    % Формирование полного кадра 768 бит
+    bitstream = zeros(768, 1, 'uint8');
+    ptr = 1;
     
-    % LSP (54 bits)
-    bitstream(pos:pos+53) = lsp_bits;
-    pos = pos + 54;
+    % 1. Преамбула (M-последовательность 32 бита)
+    mseq = [1,0,1,0,1,1,0,1,0,1,0,0,1,1,1,0,1,1,0,0,0,1,1,1,1,0,0,1,0,0,0,0]';
+    bitstream(ptr:ptr+31) = mseq;
+    ptr = ptr + 32;
     
-    % ACB parameters (3 subframes × 25 bits)
+    % 2. LSP параметры (54 бита)
+    bitstream(ptr:ptr+53) = lsp_bits(:);
+    ptr = ptr + 54;
+    
+    % 3. ACB параметры (3 подкадра × 25 бит)
     for i = 1:3
-        bitstream(pos:pos+8) = acb_params(i).lag_bits; % 9 bits
-        pos = pos + 9;
-        bitstream(pos:pos+15) = acb_params(i).gain_bits; % 16 bits
-        pos = pos + 16;
+        % Запаздывание (9 бит)
+        bitstream(ptr:ptr+8) = acb_params(i).lag_bits(:);
+        ptr = ptr + 9;
+        
+        % Усиление (16 бит)
+        bitstream(ptr:ptr+15) = acb_params(i).gain_bits(:);
+        ptr = ptr + 16;
     end
     
-    % FCB parameters (3 subframes × 158 bits)
+    % 4. FCB параметры (3 подкадра × 170 бит)
     for i = 1:3
-        bitstream(pos:pos+157) = fcb_params(i).bits;
-        pos = pos + 158;
+        % Индексы импульсов (158 бит)
+        bitstream(ptr:ptr+157) = fcb_params(i).bits(:);
+        ptr = ptr + 158;
+        
+        % Усиление (12 бит)
+        bitstream(ptr:ptr+11) = fcb_params(i).gain_bits(:);
+        ptr = ptr + 12;
     end
     
-    % Stability parameters (105 bits)
-    bitstream(pos:pos+104) = stab_bits;
+    % 5. Параметры стабильности (81 бит)
+    bitstream(ptr:ptr+80) = stab_bits(:);
+    ptr = ptr + 81;
+    
+    % 6. Резервные биты (16 бит)
+    bitstream(ptr:end) = 0; % Все биты = 0
 end
