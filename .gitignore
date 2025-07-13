@@ -29,6 +29,8 @@ html/
 @*/
 +*/
 
+*.wav
+
 *.mat
 *.fig
 *.mlapp
