@@ -1,0 +1,33 @@
+acelp_codec_top/
+├── acelp_encoder/
+│   ├── acelp_encoder.v
+│   ├── preprocess.v
+│   ├── lpc_analysis.v
+│   ├── lpc_to_lsp.v
+│   ├── lsp_quantize.v
+│   ├── acb_search.v
+│   ├── fcb_search.v
+│   ├── vq_encode_fcb.v
+│   ├── pack_bitstream.v
+│   ├── stability_params.v
+│   └── init_encoder_state.v
+├── acelp_decoder/
+│   ├── acelp_decoder.v
+│   ├── unpack_bitstream.v
+│   ├── lsp_unquantize.v
+│   ├── generate_excitation.v
+│   ├── speech_synthesis.v
+│   ├── postprocess.v
+│   ├── plc_concealment.v
+│   └── init_decoder_state.v
+├── codebooks/
+│   ├── generate_lsp_codebooks.v
+│   └── design_biased_codebook.v
+├── utils/
+│   ├── detect_transitions.v
+│   ├── energy_bands.v
+│   └── classify_signal.v
+└── buffers/
+    ├── frame_buffer.v
+    ├── acb_buffer.v
+    └── fcb_buffer.v
