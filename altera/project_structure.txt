@@ -1,33 +1,33 @@
-acelp_codec_top/
-├── acelp_encoder/
-│   ├── acelp_encoder.v
-│   ├── preprocess.v
-│   ├── lpc_analysis.v
-│   ├── lpc_to_lsp.v
-│   ├── lsp_quantize.v
-│   ├── acb_search.v
-│   ├── fcb_search.v
-│   ├── vq_encode_fcb.v
-│   ├── pack_bitstream.v
-│   ├── stability_params.v
-│   └── init_encoder_state.v
-├── acelp_decoder/
-│   ├── acelp_decoder.v
-│   ├── unpack_bitstream.v
-│   ├── lsp_unquantize.v
-│   ├── generate_excitation.v
-│   ├── speech_synthesis.v
-│   ├── postprocess.v
-│   ├── plc_concealment.v
-│   └── init_decoder_state.v
-├── codebooks/
-│   ├── generate_lsp_codebooks.v
-│   └── design_biased_codebook.v
-├── utils/
-│   ├── detect_transitions.v
-│   ├── energy_bands.v
-│   └── classify_signal.v
-└── buffers/
-    ├── frame_buffer.v
-    ├── acb_buffer.v
-    └── fcb_buffer.v
+acelp_codec_top/  
+├── encoder/
+│   ├── acelp_encoder.v          # Кодер   
+│   ├── preprocess.v             # Предобработка (HPF, предэмфазис)  
+│   ├── lpc_analysis.v           # Анализ LPC (16 порядков)  
+│   ├── lpc_to_lsp.v             # Преобразование LPC → LSP  
+│   ├── lsp_quantize.v           # Квантование LSP (P-MSVQ, 54 бит)  
+│   ├── acb_search.v             # Поиск адаптивной кодовой книги (pitch)  
+│   ├── fcb_search.v             # Поиск фиксированной кодовой книги (алгебраической)  
+│   ├── vq_encode_fcb.v          # Векторное квантование FCB (158 бит/подкадр)  
+│   ├── pack_bitstream.v         # Формирование кадра (768 бит)  
+│   ├── stability_params.v       # Расчет параметров стабильности (81 бит)  
+│   └── init_encoder_state.v     # Инициализация состояния кодера  
+├── decoder/
+│   ├── acelp_decoder.v          # Декодер   
+│   ├── unpack_bitstream.v       # Разбор кадра (768 бит)  
+│   ├── lsp_unquantize.v         # Восстановление LSP  
+│   ├── generate_excitation.v    # Генерация возбуждения (ACB + FCB)  
+│   ├── speech_synthesis.v       # Синтез речи (LPC-фильтр)  
+│   ├── postprocess.v            # Постобработка (деэмфазис)  
+│   ├── plc_concealment.v        # PLC (восстановление при потерях)  
+│   └── init_decoder_state.v     # Инициализация состояния декодера  
+├── codebooks/                   # Динамические кодовые книги  
+│   ├── generate_lsp_codebooks.v # Генерация LSP-кодовых книг (P-MSVQ)  
+│   └── design_biased_codebook.v # Биазированные кодовые книги для FCB  
+├── utils/  
+│   ├── detect_transitions.v     # Детектор транзиентов  
+│   ├── energy_bands.v           # Анализ энергетических полос  
+│   └── classify_signal.v        # Классификация сигнала (гласные/согласные)  
+└── buffers/                     # Временные буферы (встроенная память ПЛИС)  
+    ├── frame_buffer.v           # Буфер кадра (480 отсчетов × 16 бит)  
+    ├── acb_buffer.v             # Буфер ACB (307 отсчетов × 16 бит)  
+    └── fcb_buffer.v             # Буфер FCB (160 отсчетов × 16 бит)  
