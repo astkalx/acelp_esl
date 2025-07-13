@@ -1,5 +1,12 @@
 function [bitstream, state] = acelp_encoder(input_frame, state)
     % ACELP Encoder - 25.6 kbps (оптимизирован для восточнославянских языков)
+
+    % Константы из спецификации
+    MAX_PITCH_LAG = 147;       % Максимальный pitch lag
+    FCB_GAIN_MIN_DB = -12;     % Минимальное усиление FCB (дБ)
+    FCB_GAIN_MAX_DB = 24;      % Максимальное усиление FCB (дБ)
+    FCB_GAIN_CORR_RANGE = 0.5; % Диапазон коррекции (±дБ)
+
     if nargin < 2 || isempty(state)
         state = init_encoder_state();
     end
@@ -7,6 +14,9 @@ function [bitstream, state] = acelp_encoder(input_frame, state)
     FRAME_LEN = 480;
     SUBFRAME_LEN = 160;
     ORDER = 16;
+    
+    % Определение максимального лага (согласно спецификации)
+    MAX_LAG = 147;  % Максимальное значение pitch lag
     
     % Предобработка с единым коэффициентом 0.7
     [proc_frame, state] = preprocess(input_frame, state);
@@ -18,7 +28,7 @@ function [bitstream, state] = acelp_encoder(input_frame, state)
     if any(isnan(a)) || any(isinf(a))
         a = [1, zeros(1, ORDER)];  % Импульсный отклик
     end
-    audio = randn(480,1);
+    
     % Преобразование в LSP и квантование
     lsp = lpc_to_lsp(a);
     
@@ -33,6 +43,14 @@ function [bitstream, state] = acelp_encoder(input_frame, state)
     fcb_params = [];
     for i = 1:3
         subframe = proc_frame((i-1)*SUBFRAME_LEN+1:i*SUBFRAME_LEN);
+        
+        % Гарантия достаточного размера буфера
+        min_required = MAX_LAG + length(subframe);
+        if length(state.exc_buffer) < min_required
+            padding = zeros(min_required - length(state.exc_buffer), 1);
+            state.exc_buffer = [padding; state.exc_buffer];
+        end
+
         [acb_params(i), state] = acb_search(subframe, state);
         [fcb_params(i), state] = fcb_search(subframe, acb_params(i), state);
         
