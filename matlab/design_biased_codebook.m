@@ -20,7 +20,9 @@ function cb = design_biased_codebook(dim, fmin, fmax)
     % Дополнительная оптимизация для палатализованных звуков
     if fmin > 1000 && fmax > 2500
         % Увеличение плотности для LSP5-LSP10
-        idx = randi([0.5*n n], 1, 0.2*n);
+        start_idx = floor(0.5*n);  % Округление до целого
+        num_points = floor(0.2*n); % Округление до целого
+        idx = randi([start_idx n], 1, num_points);
         cb(idx,:) = rand(length(idx), dim) * (pi/2) + pi/4;
     end
 end
