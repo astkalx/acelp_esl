@@ -14,6 +14,11 @@ function [bitstream, state] = acelp_encoder(input_frame, state)
     % LPC анализ
     [a, ~] = lpc_analysis(proc_frame, ORDER);
     
+    % Защита от некорректных коэффициентов
+    if any(isnan(a)) || any(isinf(a))
+        a = [1, zeros(1, ORDER)];  % Импульсный отклик
+    end
+    audio = randn(480,1);
     % Преобразование в LSP и квантование
     lsp = lpc_to_lsp(a);
     
